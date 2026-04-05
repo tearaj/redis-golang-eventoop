@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"net"
 	"golang.org/x/sys/unix"
+	"log"
 )
 
 // EventLoop is the core of the server.
 // One goroutine runs Run() — nothing else touches db or clients.
 type EventLoop struct {
-	kqfd       int                 // the kqueue file descriptor itself
-	events     []unix.Kevent_t     // reusable buffer kqueue writes ready events into
+	kqfd       int             // the kqueue file descriptor itself
+	events     []unix.Kevent_t // reusable buffer kqueue writes ready events into
 	db         *DB
-	clients    map[int]*Client     // fd → client state
+	clients    map[int]*Client // fd → client state
 	listenerFd int
 }
 
@@ -119,23 +118,12 @@ func (el *EventLoop) handleClient(fd int) {
 // This runs in a single goroutine — no locks needed anywhere.
 func (el *EventLoop) Run(address string) error {
 	// Set up the TCP listener using the standard library,
-	// then extract the raw fd so we can register it with kqueue.
-	ln, err := net.Listen("tcp", address)
-	if err != nil {
-		return fmt.Errorf("listen: %w", err)
-	}
-
-	// Extract raw fd from the net.Listener
-	tcpLn := ln.(*net.TCPListener)
-	rawConn, err := tcpLn.SyscallConn()
-	if err != nil {
-		return err
-	}
-
-	var listenerFd int
-	rawConn.Control(func(fd uintptr) {
-		listenerFd = int(fd)
-	})
+	// then extract the raw listenerFd so we can register it with kqueue.
+	listenerFd, _ := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, 0)
+	unix.SetsockoptInt(listenerFd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+	unix.SetNonblock(listenerFd, true)
+	unix.Bind(listenerFd, &unix.SockaddrInet4{Port: 6379})
+	unix.Listen(listenerFd, unix.SOMAXCONN)
 	el.listenerFd = listenerFd
 
 	// Register the listening socket — EVFILT_READ on a listener means
