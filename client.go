@@ -6,9 +6,9 @@ import "golang.org/x/sys/unix"
 // rbuf accumulates raw bytes until we have a full RESP command.
 // wbuf accumulates response bytes until we can flush them.
 type Client struct {
-	fd    int
-	rbuf  []byte
-	wbuf  []byte
+	fd   int
+	rbuf []byte
+	wbuf []byte
 }
 
 func NewClient(fd int) *Client {

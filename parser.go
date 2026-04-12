@@ -18,10 +18,11 @@ var errInvalid = errors.New("invalid RESP")
 // tryParseRESP attempts to parse one complete RESP command from buf.
 //
 // RESP format for an array (what Redis clients send):
-//   *<count>\r\n
-//   $<len>\r\n<value>\r\n
-//   $<len>\r\n<value>\r\n
-//   ...
+//
+//	*<count>\r\n
+//	$<len>\r\n<value>\r\n
+//	$<len>\r\n<value>\r\n
+//	...
 //
 // Returns (cmd, bytesConsumed, nil) on success.
 // Returns (_, 0, errIncomplete) if more bytes are needed — caller should wait.
