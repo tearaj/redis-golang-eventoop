@@ -1,7 +1,7 @@
 package main
 
-// DB is the in-memory store. No mutex needed — only ever touched
-// by the single event loop goroutine.
+// DB is the in-memory store.
+// No mutex needed, only ever touched by the single event loop goroutine.
 type DB struct {
 	data map[string]string
 }

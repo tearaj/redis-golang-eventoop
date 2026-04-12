@@ -84,32 +84,33 @@ func (el *EventLoop) handleClient(fd int) {
 	client := el.clients[fd]
 
 	if !client.appendRead() {
-		// 0 bytes = client closed connection; error = connection reset
 		el.deregisterClient(fd)
 		return
 	}
 
-	// Parse loop — one buffer may contain multiple complete commands
 	for {
 		cmd, consumed, err := tryParseRESP(client.rbuf)
 		if err != nil {
-			// errIncomplete: fine, wait for more bytes from kqueue
-			// errInvalid: protocol error, drop client
-			if err != errIncomplete {
-				log.Printf("parse error fd=%d: %v", fd, err)
-				el.deregisterClient(fd)
+			if err == errIncomplete {
+				log.Println("incomplete read", cmd, consumed, err)
+				break
 			}
-			break
+			// Log the raw bytes so we can see what broke the parser
+			log.Printf("parse error fd=%d: %v | raw: %q", fd, err, client.rbuf)
+			el.deregisterClient(fd)
+			return
 		}
+		log.Printf("Parsing successful: %v", cmd)
 
-		// Consume exactly those bytes — leave any remaining in rbuf
 		client.rbuf = client.rbuf[consumed:]
 
-		// Execute: pure memory ops against db, stages response into wbuf
+		// Skip blank lines that inline parsing may emit
+		if cmd.Name == "" {
+			continue
+		}
 		execute(cmd, el.db, client)
 	}
 
-	// Send everything staged in wbuf back to the client
 	client.flushWrites()
 }
 
@@ -145,7 +146,7 @@ func (el *EventLoop) Run(address string) error {
 			return fmt.Errorf("kevent wait: %w", err)
 		}
 
-		for i := 0; i < n; i++ {
+		for i := range n {
 			fd := int(el.events[i].Ident)
 
 			if el.events[i].Flags&unix.EV_ERROR != 0 {

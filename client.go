@@ -1,6 +1,10 @@
 package main
 
-import "golang.org/x/sys/unix"
+import (
+	"log"
+
+	"golang.org/x/sys/unix"
+)
 
 // Client holds all state for a single TCP connection.
 // rbuf accumulates raw bytes until we have a full RESP command.
@@ -38,7 +42,10 @@ func (c *Client) flushWrites() {
 	if len(c.wbuf) == 0 {
 		return
 	}
-	unix.Write(c.fd, c.wbuf)
+	_, err := unix.Write(c.fd, c.wbuf)
+	if err != nil {
+		log.Printf("Error while write to buffer: %v\n", err)
+	}
 	c.wbuf = c.wbuf[:0]
 }
 
