@@ -35,18 +35,29 @@ func (c *Client) appendRead() bool {
 	return true
 }
 
-// flushWrites attempts to send everything in wbuf to the client.
-// For now we do a simple Write — partial write handling would register
-// EVFILT_WRITE with kqueue (explained in eventloop.go).
-func (c *Client) flushWrites() {
-	if len(c.wbuf) == 0 {
-		return
+// flushWrites attempts to drain wbuf to the socket.
+// On a non-blocking fd, Write() may only consume part of wbuf if the
+// kernel send buffer is full — it never blocks. When that happens we
+// keep the unwritten remainder in wbuf and return true to signal that
+// the caller should register EVFILT_WRITE with kqueue so we can drain
+// the rest once the send buffer has room again.
+// Returns true if bytes remain (write is still pending), false when done.
+func (c *Client) flushWrites() bool {
+	for len(c.wbuf) > 0 {
+		n, err := unix.Write(c.fd, c.wbuf)
+		if err != nil {
+			if err == unix.EAGAIN {
+				// Kernel send buffer is full. Stop here; the event loop will
+				// register EVFILT_WRITE and call us again when there's room.
+				return true
+			}
+			// Any other error means the connection is broken.
+			log.Printf("fd=%d write error: %v", c.fd, err)
+			return false
+		}
+		c.wbuf = c.wbuf[n:]
 	}
-	_, err := unix.Write(c.fd, c.wbuf)
-	if err != nil {
-		log.Printf("Error while write to buffer: %v\n", err)
-	}
-	c.wbuf = c.wbuf[:0]
+	return false // wbuf fully drained
 }
 
 func (c *Client) writeString(s string) {
