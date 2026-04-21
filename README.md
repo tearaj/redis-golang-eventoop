@@ -12,7 +12,7 @@ The primary goal of this project is to demystify how event loops work by buildin
 - **Single-Threaded Event Model:** Observe how a single goroutine can efficiently handle many concurrent client connections without explicit locking, as all state modifications happen within the event loop's context.
 
 ## How it Works (Technical Deep Dive)
-- Writing in progress 
+- Refer this blog for the deep dive: [here](https://medium.com/@haridasanrajit/how-event-loops-work-building-one-in-go-from-scratch-d4a137e54586) 
 
 ## Supported Redis Commands
 
